@@ -10,8 +10,9 @@ services:
       - POSTGRES_PASSWORD
       - POSTGRES_DB
       - DB_HOST=db
-    ports:
-      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:18
@@ -23,6 +24,22 @@ services:
       - dataB:/var/lib/postgresql
     networks:
       - db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  nginx:
+    build: ./nginx
+    networks:
+      - practice
+    ports:
+      - "8080:80"
+      - "8443:443"
+    depends_on:
+      - back_end
 
 volumes:
   dataB:
