@@ -1,0 +1,24 @@
+name: CI
+
+on: push
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+    steps: 
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: make nginx/certs/server.crt
+      - run: docker compose config
+      - run: docker compose build
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv venv venv
+      - run: uv pip install --python venv -r backend/requirements.txt -r backend/requirements-dev.txt
+      - run: source venv/bin/activate && make lint
+      - run: shellcheck scripts/*.sh
+      
+      - name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          recursive: true

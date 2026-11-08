@@ -11,14 +11,20 @@ up: nginx/certs/server.crt
 down:
 	docker compose down
 
-clean:
-	docker compose down -v
-	
+backup:
+	bash scripts/db_dump.sh
+
+restore:
+	bash scripts/restore.sh $(FILE)
+
 nginx/certs/server.crt:
 	mkdir -p nginx/certs
 	openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
 	-keyout nginx/certs/server.key -out nginx/certs/server.crt \
 	-subj "/CN=localhost" -addext "subjectAltName=DNS:localhost"
+
+clean:
+	docker compose down -v
 
 fclean:
 	find . -not -path './venv/*' -type d \( -name "__pycache__" -o -name ".mypy_cache" -o -name ".pytest_cache" \)  -exec rm -rf {} +
@@ -28,4 +34,4 @@ lint:
 	uv run python -m flake8 . ${FLAKE8_EXCLUDES}
 	uv run python -m mypy . ${MYPY_FLAGS} ${MYPY_EXCLUDES}
 
-.PHONY: build up down clean fclean lint
+.PHONY: build up down backup restore clean fclean lint

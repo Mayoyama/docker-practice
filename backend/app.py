@@ -1,10 +1,11 @@
-from flask import Flask
+import prometheus_client
 import psycopg
+import flask
 import sys
 import os
 
 
-app = Flask(__name__)
+app = flask.Flask(__name__)
 
 
 try:
@@ -19,6 +20,15 @@ except KeyError as e:
 
 VISIT_TABLE = "visits"
 VISIT_COL = "count"
+METRIC_COUNTER = prometheus_client.Counter(
+    name="http_requests",
+    documentation="Counter to http requests",
+    labelnames=[
+        "path",
+        "method",
+        "status",
+    ]
+)
 
 
 with psycopg.connect(
@@ -39,6 +49,24 @@ def get_health() -> tuple[dict[str, str], int]:
     return {"status": "ok"}, 200
 
 
+@app.route("/dbready")
+def setup_is_ready() -> tuple[dict[str, str], int]:
+    try:
+        with psycopg.connect(
+            host=DB_HOST,
+            dbname=DB_NAME,
+            user=PG_USER,
+            password=PG_PW,
+            connect_timeout=2,
+        ) as conn:
+            conn.execute("SELECT 1")
+
+    except psycopg.OperationalError:
+        return {"status": "database is down"}, 503
+
+    return {"status": "ok"}, 200
+
+
 @app.route("/visits")
 def get_visit_count() -> tuple[dict[str, int | str], int]:
     with psycopg.connect(
@@ -48,7 +76,8 @@ def get_visit_count() -> tuple[dict[str, int | str], int]:
         password=PG_PW
     ) as conn:
         val = conn.execute(f"UPDATE {VISIT_TABLE} SET {VISIT_COL} = "
-                    f"{VISIT_COL} +1 WHERE id = 1 RETURNING {VISIT_COL}")
+                           f"{VISIT_COL} +1 WHERE id = 1 RETURNING"
+                           f" {VISIT_COL}")
         res = val.fetchone()
 
         if res:
@@ -56,3 +85,21 @@ def get_visit_count() -> tuple[dict[str, int | str], int]:
 
     return {"error": "visit counter row not found"}, 500
 
+
+@app.route("/metrics")
+def get_metrics() -> tuple[bytes, int, dict[str, str]]:
+    latest = prometheus_client.generate_latest()
+    content_type = prometheus_client.CONTENT_TYPE_LATEST
+
+    return latest, 200, {"Content-Type": content_type}
+
+
+@app.after_request
+def count_visits(response: flask.Response) -> flask.Response:
+    METRIC_COUNTER.labels(
+        path=flask.request.path,
+        method=flask.request.method,
+        status=response._status_code,
+    ).inc()
+
+    return response
