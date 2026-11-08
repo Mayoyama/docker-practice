@@ -1,5 +1,9 @@
+# Secrects
 .env
-venv
-.vscode/
 nginx/certs/*
+k8s/docker-practice-db-secret.yml
+
+# Environment
+venv/
+.vscode/
 backups/

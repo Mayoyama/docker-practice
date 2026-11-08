@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docker-practice-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docker-practice-backend
+  template:
+    metadata:
+      labels:
+       app: docker-practice-backend
+    spec:
+      containers:
+        - name: backend
+          image: backend
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: docker-practice-db-secret
+          env:
+            - name: DB_HOST
+              value: db
+          ports:
+            - containerPort: 5000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /dbready
+              port: 5000
+            periodSeconds: 5

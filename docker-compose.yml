@@ -1,7 +1,7 @@
 services:
-  back_end:
+  backend:
     build: ./backend
-    image: back_end
+    image: backend
     networks:
       - practice
       - db
@@ -48,7 +48,7 @@ services:
       - "8080:80"
       - "8443:443"
     depends_on:
-      back_end:
+      backend:
         condition: service_healthy
       grafana:
         condition: service_started
